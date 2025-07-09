@@ -1,0 +1,2 @@
+# Ignore secrets
+app-main/backend/serviceKey.json
