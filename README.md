@@ -1,6 +1,3 @@
-Of course, Bushra! 💜 Here’s a **clean, professional** version of your `README.md` — properly formatted, without emojis, and structured for clarity. This version is ideal for showcasing your project in a **professional environment** like GitHub or during evaluations:
-
----
 
 ````markdown
 # Visitor Management System with Face Recognition
