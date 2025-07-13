@@ -1,0 +1,63 @@
+<head>
+  <title>Give Feedback</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <h2>💬 Your Thoughts Matter!</h2>
+  <p>Tell us how your visit was ✨ (or just speak it out loud!) 🎤</p>
+
+  <textarea id="fbText" placeholder="Say something sweet..." rows="5" cols="50"
+    style="border-radius: 15px; padding: 12px; font-size: 16px; border: 2px solid #dcd6f7;"></textarea><br><br>
+
+  <button onclick="startSpeech()" style="background-color:#a29bfe; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600;">
+    🎤 Speak
+  </button>
+
+  <button onclick="submitFeedback()" style="background-color:#fd79a8; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; margin-left: 10px;">
+    💌 Submit
+  </button>
+
+  <p id="statusText" style="color: #6c5ce7; margin-top: 20px;"></p>
+
+  <script>
+    let visitorId = "your_test_id"; // replace with actual ID once matched
+
+    function startSpeech() {
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (event) => {
+        document.getElementById('fbText').value = event.results[0][0].transcript;
+      };
+
+      recognition.onerror = (e) => {
+        document.getElementById('statusText').innerText = "⚠️ Mic error: " + e.error;
+      };
+
+      recognition.start();
+      document.getElementById('statusText').innerText = "🎙️ Listening...";
+    }
+
+    async function submitFeedback() {
+      const feedback = document.getElementById("fbText").value;
+      if (!feedback.trim()) {
+        alert("Write or say something first! 😅");
+        return;
+      }
+
+      const res = await fetch("http://localhost:3000/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visitorId, feedback })
+      });
+
+      const data = await res.json();
+      document.getElementById('statusText').innerText = "💖 Thank you for your kind words!";
+      document.getElementById('fbText').value = "";
+    }
+  </script>
+</body>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Register Visitor</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="main-box">
+    <form id="regForm" class="regForm">
+      <h2>Register</h2>
+      <input type="text" id="name" placeholder="Name" required><br>
+      <input type="email" id="email" placeholder="Email" required><br>
+      <input type="text" id="purpose" placeholder="Purpose of visit" required><br>
+      <button type="button" id="captureBtn">🎥 Capture Face</button><br>
+      <video id="video" width="320" height="240" autoplay muted></video><br>
+      <button type="button" onclick="sendOTP()">📩 Send OTP</button>
+      <input type="text" id="otpInput" placeholder="Enter OTP" style="margin-top:10px; display:none;">
+      <button type="button" id="verifyBtn" style="display:none;" onclick="verifyOTP()">✅ Verify OTP</button>
+      <p id="otpStatus" style="color: green;"></p>
+      <button type="submit">Register</button>
+    </form>
+
+    <div class="preview-box" id="facePreviewBox" style="display: none;">
+      <p>📸 Face Snapshot Preview</p>
+      <img id="snapshotImg" alt="Captured Face" />
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+  <script>
+    let otpVerified = false;
+
+    async function sendOTP() {
+      const email = document.getElementById("email").value.trim();
+      if (!email) return alert("Enter email first!");
+
+      const res = await fetch("http://localhost:3000/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+      if (data.status === "sent") {
+        alert("OTP sent to your email! 📩");
+        document.getElementById("otpInput").style.display = "inline-block";
+        document.getElementById("verifyBtn").style.display = "inline-block";
+      } else {
+        alert("Failed to send OTP 😢");
+      }
+    }
+
+    async function verifyOTP() {
+      const email = document.getElementById("email").value.trim();
+      const otp = document.getElementById("otpInput").value.trim();
+
+      const res = await fetch("http://localhost:3000/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp })
+      });
+
+      const data = await res.json();
+      if (data.verified) {
+        otpVerified = true;
+        document.getElementById("otpStatus").innerText = "✅ OTP Verified!";
+        document.getElementById("otpStatus").style.color = "green";
+      } else {
+        document.getElementById("otpStatus").innerText = "❌ Wrong OTP!";
+        document.getElementById("otpStatus").style.color = "red";
+      }
+    }
+
+    let capturedEmbedding = [];
+    let stream;
+    const video = document.getElementById("video");
+    const snapshotImg = document.getElementById("snapshotImg");
+    const previewBox = document.getElementById("facePreviewBox");
+
+    async function loadModels() {
+      await faceapi.nets.tinyFaceDetector.loadFromUri('./models');
+      await faceapi.nets.faceLandmark68Net.loadFromUri('./models');
+      await faceapi.nets.faceRecognitionNet.loadFromUri('./models');
+    }
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        return new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            video.play();
+            setTimeout(resolve, 2000); // Give time for camera to stabilize
+          };
+        });
+      } catch (err) {
+        alert("🚨 Camera Access Error: " + err.message);
+        console.error(err);
+      }
+    }
+
+    async function captureFace() {
+      const detection = await faceapi
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (detection) {
+        capturedEmbedding = Array.from(detection.descriptor);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0);
+
+        // Show preview
+        snapshotImg.src = canvas.toDataURL("image/jpeg");
+        previewBox.style.display = "block";
+
+        alert("Face captured successfully ✅");
+        stopCamera();
+      } else {
+        alert("Face not detected 😢 Try again.");
+      }
+    }
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+    }
+
+    // Handle Capture Button
+    document.getElementById("captureBtn").addEventListener("click", async () => {
+      await loadModels();
+      await startCamera();
+      await captureFace();
+    });
+
+    // Submit Form
+    document.getElementById("regForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const purpose = document.getElementById('purpose').value;
+
+      if (!capturedEmbedding.length) {
+        alert("Please capture your face first 😢");
+        return;
+      }
+
+      const res = await fetch('http://localhost:3000/register', {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, purpose, embedding: capturedEmbedding })
+      });
+
+      const data = await res.json();
+      if (!otpVerified) {
+        alert("❌ Please verify OTP before registering!");
+        return;
+      }
+
+      if (data.status === "exists") {
+        alert("😅 You're already registered! Please go to Check-In ✅");
+      } else {
+        alert("Registered Successfully 🎉");
+      }
+    });
+  </script>
+</body>
+</html>

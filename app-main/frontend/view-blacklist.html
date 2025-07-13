@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>View Blacklisted Visitors</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #fffafc;
+      padding: 40px;
+      text-align: center;
+    }
+    h2 {
+      color: #d63072;
+    }
+    .visitor-card {
+      background-color: #ffe6e6;
+      padding: 20px;
+      margin: 10px auto;
+      max-width: 500px;
+      border-radius: 12px;
+      text-align: left;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .visitor-card strong {
+      color: #c0392b;
+    }
+    .remove-btn {
+      margin-top: 10px;
+      background-color: #ff7675;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .remove-btn:hover {
+      background-color: #e74c3c;
+    }
+  </style>
+</head>
+<body>
+
+<div id="mainContent" style="display: none;">
+  <h2>🛑 Blacklisted Visitors</h2>
+  <ul id="blacklistList" style="list-style-type: none; padding: 0;"></ul>
+</div>
+
+<script>
+  const isAdmin = localStorage.getItem("admin-auth");
+  if (isAdmin !== "true") {
+    const currentPage = window.location.pathname.split("/").pop();
+    window.location.href = `admin-login.html?redirect=${encodeURIComponent(currentPage)}`;
+  } else {
+    document.getElementById("mainContent").style.display = "block";
+    loadBlacklist();
+  }
+
+  async function loadBlacklist() {
+  const res = await fetch("http://localhost:3000/get-blacklist");
+  const data = await res.json();
+  console.log("Blacklist Data:", data); // 💥 ADD THIS!
+
+  const list = document.getElementById("blacklistList");
+  list.innerHTML = "";
+
+  if (!data || data.length === 0) {
+    list.innerHTML = "<li style='color: gray;'>No one is blacklisted 😇</li>";
+    return;
+  }
+
+  data.forEach(person => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <div class="visitor-card">
+        <strong>📧 ${person.email}</strong><br/>
+        📝 ${person.reason}<br/>
+        <button class="remove-btn" onclick="removeVisitor('${person.email}')">Remove</button>
+      </div>`;
+    list.appendChild(li);
+  });
+}
+
+
+  async function removeVisitor(email) {
+    const confirmDelete = confirm(`Are you sure you want to remove ${email} from blacklist?`);
+    if (!confirmDelete) return;
+
+    const res = await fetch("http://localhost:3000/remove-blacklist", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+
+    const data = await res.json();
+    if (data.status === "removed") {
+      alert("✅ Visitor removed from blacklist!");
+      loadBlacklist();
+    } else {
+      alert("❌ Error removing visitor.");
+    }
+  }
+</script>
+</body>
+</html>

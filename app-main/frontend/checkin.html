@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Check In</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <h2>👋 Welcome Back!</h2>
+  <p>Let's recognize your beautiful face! 💖</p>
+
+  <video id="video" width="320" height="240" autoplay muted></video>
+  <p id="statusText" style="margin-top: 20px; color: #6c5ce7; font-weight: bold;"></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  
+  <script>
+    let visitorId = null;
+
+    async function start() {
+      const video = document.getElementById('video');
+      const statusText = document.getElementById('statusText');
+
+      try {
+        statusText.innerText = "⏳ Loading models...";
+        await faceapi.nets.tinyFaceDetector.loadFromUri('./models');
+        await faceapi.nets.faceLandmark68Net.loadFromUri('./models');
+        await faceapi.nets.faceRecognitionNet.loadFromUri('./models');
+
+        statusText.innerText = "📸 Starting camera...";
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+
+        video.onloadedmetadata = () => {
+          video.play();
+          detectFace(); // wait for video to fully load then detect
+        };
+
+      } catch (err) {
+        statusText.innerText = "⚠️ Error: " + err.message;
+        console.error("Camera Error", err);
+      }
+    }
+
+    async function detectFace() {
+      const video = document.getElementById('video');
+      const statusText = document.getElementById('statusText');
+
+      statusText.innerText = "👀 Looking for your face...";
+      await new Promise(r => setTimeout(r, 3000)); // let camera warm up
+
+      const detection = await faceapi
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!detection) {
+        statusText.innerText = "😢 Face not detected. Try again.";
+        return;
+      }
+
+      statusText.innerText = "✨ Face captured. Matching...";
+
+      const embedding = Array.from(detection.descriptor);
+
+      const res = await fetch("http://localhost:3000/match-face", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ embedding })
+      });
+
+      const data = await res.json();
+
+      if (data.match && !data.blacklisted) {
+        visitorId = data.visitor.id;
+
+        await fetch("http://localhost:3000/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visitorId })
+        });
+
+        statusText.innerText = "✅ Check-in successful!";
+      } else if (data.blacklisted) {
+        statusText.innerText = `❌ BLACKLISTED\nReason: ${data.reason}`;
+      } else {
+        statusText.innerText = "😢 Face not recognized.";
+      }
+    }
+
+    start();
+  </script>
+</body>
+</html>

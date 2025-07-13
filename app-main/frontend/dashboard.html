@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #fffafc;
+      padding: 30px;
+      text-align: center;
+    }
+    .card {
+      background: #fce4ec;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      margin: 20px;
+    }
+  </style>
+</head>
+
+<body>
+<div id="mainContent" style="display: none;">
+  <h2>📊 Admin Dashboard</h2>
+  <p>Here’s what’s been happening 🕵️‍♀️✨</p>
+
+  <label for="filterSelect" style="font-weight: bold;">Filter Logs:</label>
+  <select id="filterSelect" style="margin: 10px; padding: 5px; border-radius: 8px;">
+    <option value="all">All</option>
+    <option value="checkin">Check-In</option>
+    <option value="checkout">Check-Out</option>
+  </select>
+
+  <!-- 💚❤️ Sentiment + Logs side-by-side -->
+  <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin-top: 30px;">
+      <div class="card" style="margin-top: 30px; max-width: 300px; margin-left: auto; margin-right: auto;">
+        <h3 style="color: #6c5ce7; font-size: 18px;">🧠 Feedback Sentiment</h3>
+        <canvas id="sentimentChart" width="180" height="180" style="margin-top: 10px;"></canvas>
+      </div>
+
+
+    <div class="card" style="flex: 1; min-width: 280px;">
+      <ul id="logList" style="list-style: none; padding: 0;"></ul>
+    </div>
+  </div>
+
+  <button onclick="logout()" style="margin-top: 20px;">🚪 Logout</button>
+</div>
+
+<!-- 🎯 Script Zone -->
+<script>
+  const logList = document.getElementById("logList");
+  const filterSelect = document.getElementById("filterSelect");
+  let allLogs = [];
+
+  // 💚❤️ Sentiment Chart
+  async function loadSentimentChart() {
+    try {
+      const res = await fetch("http://localhost:3000/sentiment-stats");
+      const data = await res.json();
+
+      const ctx = document.getElementById('sentimentChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: ['Positive 😊', 'Negative 😕'],
+          datasets: [{
+            data: [data.positive, data.negative],
+            backgroundColor: ['#00b894', '#d63031'],
+            borderColor: ['#ffffff', '#ffffff'],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                font: { size: 14 }
+              }
+            }
+          }
+        }
+      });
+    } catch (err) {
+      console.error("Sentiment error:", err);
+    }
+  }
+
+  // 🧾 Load Logs
+  async function loadLogs() {
+    try {
+      const res = await fetch("http://localhost:3000/dashboard");
+      const logs = await res.json();
+      allLogs = logs;
+      renderLogs("all");
+    } catch (err) {
+      logList.innerHTML = `<li style='color: red;'>❌ Error loading logs</li>`;
+      console.error("Log error:", err);
+    }
+  }
+
+  // ✏️ Show logs based on filter
+  function renderLogs(filterType) {
+    logList.innerHTML = "";
+
+    const filteredLogs = allLogs.filter(log =>
+      filterType === "all" ? true : log.type === filterType
+    );
+
+    if (filteredLogs.length === 0) {
+      logList.innerHTML = `<li style='color: gray;'>No logs found for "${filterType}" 💤</li>`;
+      return;
+    }
+
+    filteredLogs.forEach(log => {
+      const li = document.createElement("li");
+
+      const type = log.type ? log.type.toUpperCase() : "UNKNOWN";
+      let time = "Unknown time";
+
+      if (log.time?.toDate) {
+        time = log.time.toDate().toLocaleString();
+      } else if (log.time?._seconds) {
+        time = new Date(log.time._seconds * 1000).toLocaleString();
+      }
+
+      li.innerHTML = `
+        <div style="background-color: #fff0f6; border-radius: 12px; padding: 15px 20px; margin: 10px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+          <span style="font-weight: 600; color: #6c5ce7;">${type}</span><br/>
+          <span style="font-size: 14px; color: #636e72;">🧍‍♀️ ${log.visitorName} (${log.visitorEmail})</span><br/>
+          <span style="font-size: 14px; color: #636e72;">🕒 ${time}</span>
+        </div>
+      `;
+      logList.appendChild(li);
+    });
+  }
+
+  filterSelect.addEventListener("change", (e) => {
+    renderLogs(e.target.value);
+  });
+
+  function logout() {
+    localStorage.removeItem("admin-auth");
+    window.location.href = "admin-login.html";
+  }
+
+  // ✅ Auth check
+  const isAdmin = localStorage.getItem("admin-auth");
+  if (isAdmin !== "true") {
+    const currentPage = window.location.pathname.split("/").pop();
+    window.location.href = `admin-login.html?redirect=${encodeURIComponent(currentPage)}`;
+  } else {
+    document.getElementById("mainContent").style.display = "block";
+    loadSentimentChart();
+    loadLogs();
+  }
+</script>
+</body>
+</html>

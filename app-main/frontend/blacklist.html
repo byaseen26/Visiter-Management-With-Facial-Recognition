@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Blacklist Visitor</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #fdf0f6;
+      text-align: center;
+      padding: 50px;
+    }
+    .blacklist-box {
+      background-color: white;
+      padding: 30px;
+      border-radius: 20px;
+      max-width: 400px;
+      margin: 0 auto;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    input, textarea {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+    button {
+      background-color: #e84393;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #d63072;
+    }
+  </style>
+</head>
+<body>
+
+<div id="mainContent" style="display: none;">
+  <h2>🚫 Blacklist a Visitor</h2>
+  <div class="blacklist-box">
+    <input type="email" id="email" placeholder="Visitor Email" required><br>
+    <textarea id="reason" placeholder="Reason for blacklisting" rows="4" required></textarea><br>
+    <button onclick="blacklist()">Add to Blacklist</button>
+  </div>
+</div>
+
+<script>
+  const isAdmin = localStorage.getItem("admin-auth");
+  if (isAdmin !== "true") {
+    window.location.href = `admin-login.html?redirect=${encodeURIComponent(location.pathname)}`;
+  } else {
+    document.getElementById("mainContent").style.display = "block";
+  }
+
+  async function blacklist() {
+    const email = document.getElementById("email").value.trim();
+    const reason = document.getElementById("reason").value.trim();
+
+    if (!email || !reason) {
+      alert("⚠️ Both fields are required!");
+      return;
+    }
+
+    const res = await fetch("http://localhost:3000/blacklist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, reason })
+    });
+
+    const data = await res.json();
+    if (data.status === "blacklisted") {
+      alert("✅ Visitor blacklisted successfully!");
+      document.getElementById("email").value = "";
+      document.getElementById("reason").value = "";
+    } else {
+      alert("❌ Error blacklisting visitor.");
+    }
+  }
+</script>
+</body>
+</html>
